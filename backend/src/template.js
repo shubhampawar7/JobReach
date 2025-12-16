@@ -1,3 +1,7 @@
+const path = require("path");
+
+const { readJson } = require("./utils");
+
 function guessGreetingFromEmail(email) {
   const e = String(email || "").toLowerCase();
   const hrHints = ["hr", "hiring", "recruit", "talent", "peopleops", "people-ops"];
@@ -5,70 +9,56 @@ function guessGreetingFromEmail(email) {
   return "Hiring Team";
 }
 
+function loadDefaultBodyFromUiSettings() {
+  try {
+    // backend/src -> backend -> project root
+    const root = path.resolve(__dirname, "..", "..");
+    const settingsPath = path.resolve(root, "data", "ui-settings.json");
+    const s = readJson(settingsPath, {});
+    return String(s?.defaultBody || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function bodyAlreadyHasSignature(bodyText) {
+  const b = String(bodyText || "");
+  if (!b.trim()) return false;
+  const v = b.toLowerCase();
+  // tolerate newlines/spaces between words
+  return /warm\s+regards/.test(v) || /regards\s*,/.test(v) || /shubham\s+pawar/.test(v);
+}
+
+function firstNameOnly(fullName) {
+  const name = String(fullName || "").trim();
+  if (!name) return "";
+  // Keep generic greetings as-is.
+  if (name.toLowerCase() === "hiring team") return "Hiring Team";
+  // Strip common punctuation and take first token.
+  const cleaned = name.replace(/[(),]/g, " ").trim();
+  const first = cleaned.split(/\s+/)[0] || "";
+  return first || name;
+}
+
 function buildEmail({ recipientName, recipientEmail, subject }) {
   const name = String(recipientName || "").trim();
-  const greetingName = name || guessGreetingFromEmail(recipientEmail);
+  const greetingName = firstNameOnly(name) || guessGreetingFromEmail(recipientEmail);
 
-  const text = [
-    `Hi ${greetingName},`,
-    "",
-    "I hope you’re doing well. My name is Shubham Pawar, and I am writing to apply for the MERN Stack Developer position at your organization. I have 3 years of hands-on experience building scalable, high-performance web applications using React.js, Node.js, TypeScript, Microservices, PostgreSQL, MongoDB, SSO, and SSE.",
-    "",
-    "In my recent roles, I have:",
-    "- Built responsive, pixel-perfect UIs using React.js and modern frontend architecture",
-    "- Developed secure backend APIs and microservices",
-    "- Implemented real-time features using Server-Sent Events (SSE)",
-    "- Improved performance through caching, state optimization, memoization & API tuning",
-    "- Delivered end-to-end features in fast-paced product environments",
-    "- Collaborated with Product, QA, and DevOps to ensure smooth and timely delivery",
-    "",
-    "I want to highlight that I am an IMMEDIATE JOINER, fully available to start right away without any notice period.",
-    "",
-    "Here are my key links for quick review:",
-    "LinkedIn: https://www.linkedin.com/in/shubhampawar-",
-    "Portfolio: https://shubhamsportfoliosite.netlify.app/",
-    "Email: pawarshubham1295@gmail.com",
-    "Contact: 7020567907",
-    "",
-    "I would greatly appreciate the opportunity to discuss how my MERN expertise and hands-on project experience can contribute to your engineering team.",
-    "",
-    "Thank you for your time, and I look forward to the possibility of connecting.",
-    "",
+  const defaultBody = loadDefaultBodyFromUiSettings();
+  const signatureText = [
     "Warm regards,",
     "Shubham Pawar",
     "MERN Stack Developer | Software Engineer",
     "Immediate Joiner",
-    "",
   ].join("\n");
 
-  const html = `
-    <p>Hi ${escapeHtml(greetingName)},</p>
-    <p>
-      I hope you’re doing well. My name is Shubham Pawar, and I am writing to apply for the MERN Stack Developer position at your organization.
-      I have 3 years of hands-on experience building scalable, high-performance web applications using React.js, Node.js, TypeScript, Microservices,
-      PostgreSQL, MongoDB, SSO, and SSE.
-    </p>
-    <p>In my recent roles, I have:</p>
-    <ul>
-      <li>Built responsive, pixel-perfect UIs using React.js and modern frontend architecture</li>
-      <li>Developed secure backend APIs and microservices</li>
-      <li>Implemented real-time features using Server-Sent Events (SSE)</li>
-      <li>Improved performance through caching, state optimization, memoization &amp; API tuning</li>
-      <li>Delivered end-to-end features in fast-paced product environments</li>
-      <li>Collaborated with Product, QA, and DevOps to ensure smooth and timely delivery</li>
-    </ul>
-    <p><strong>I am an IMMEDIATE JOINER</strong>, fully available to start right away without any notice period.</p>
-    <p>Here are my key links for quick review:</p>
-    <ul>
-      <li>LinkedIn: <a href="https://www.linkedin.com/in/shubhampawar-">https://www.linkedin.com/in/shubhampawar-</a></li>
-      <li>Portfolio: <a href="https://shubhamsportfoliosite.netlify.app/">https://shubhamsportfoliosite.netlify.app/</a></li>
-      <li>Email: <a href="mailto:pawarshubham1295@gmail.com">pawarshubham1295@gmail.com</a></li>
-      <li>Contact: 7020567907</li>
-    </ul>
-    <p>
-      I would greatly appreciate the opportunity to discuss how my MERN expertise and hands-on project experience can contribute to your engineering team.
-    </p>
-    <p>Thank you for your time, and I look forward to the possibility of connecting.</p>
+  const shouldAddSignature = !bodyAlreadyHasSignature(defaultBody);
+  const textParts = [`Hi ${greetingName},`, "", defaultBody];
+  if (shouldAddSignature) textParts.push("", signatureText, "");
+  else textParts.push("");
+  const text = textParts.join("\n").trim() + "\n";
+
+  const signatureHtml = `
     <p>
       Warm regards,<br />
       Shubham Pawar<br />
@@ -77,7 +67,20 @@ function buildEmail({ recipientName, recipientEmail, subject }) {
     </p>
   `.trim();
 
+  const html = `
+    <p>Hi ${escapeHtml(greetingName)},</p>
+    <p>${bodyToHtml(defaultBody)}</p>
+    ${shouldAddSignature ? signatureHtml : ""}
+  `.trim();
+
   return { subject, text, html };
+}
+
+function bodyToHtml(bodyText) {
+  return String(bodyText || "")
+    .split("\n")
+    .map((line) => escapeHtml(line))
+    .join("<br />");
 }
 
 function escapeHtml(s) {

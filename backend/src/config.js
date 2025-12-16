@@ -48,6 +48,7 @@ module.exports = {
     root: ROOT,
     recipientsCsv: path.resolve(ROOT, "data/recipients.csv"),
     sentJson: path.resolve(ROOT, "data/sent.json"),
+    sentXlsx: path.resolve(ROOT, env("SENT_XLSX_PATH", "data/sent.xlsx")),
     resumePath: path.resolve(ROOT, env("RESUME_PATH", "assets/Shubham_Pawar_3Yr.pdf")),
   },
   smtp: {

@@ -30,6 +30,7 @@
       <div class="tabs">
         <button class="tab active" id="tabSend" type="button">Send</button>
         <button class="tab" id="tabHr" type="button">HR Finder</button>
+        <button class="tab" id="tabDefaults" type="button">Defaults</button>
       </div>
 
       <main class="grid">
@@ -110,43 +111,132 @@
           </form>
         </section>
 
-        <section class="card tabPanel hidden" id="panelHr">
-          <div class="cardTitle">HR / Talent Acquisition Finder</div>
+        <section class="tabPanel hidden" id="panelHr">
+          <div class="hrTwoCol">
+            <section class="card" id="hrFormCard">
+              <div class="cardTitle">HR / Talent Acquisition Finder</div>
+              <div class="cardHint">
+                Enter a company name or domain and get a list of <strong>HR / Talent Acquisition</strong> emails.
+                (Requires server API keys to be configured.)
+              </div>
+
+              <div class="row">
+                <label class="label" for="company">Company name (optional)</label>
+                <div class="typeahead" id="companyTypeahead">
+                  <input
+                    id="company"
+                    type="text"
+                    placeholder="e.g. TCS, Infosys, Google"
+                    autocomplete="off"
+                  />
+                  <div id="companyDropdown" class="typeaheadMenu hidden" role="listbox"></div>
+                </div>
+              </div>
+
+              <div class="row">
+                <label class="label" for="domain">Company domain (recommended)</label>
+                <input id="domain" type="text" placeholder="e.g. company.com" />
+              </div>
+
+              <div class="row">
+                <label class="label" for="provider">Provider</label>
+                <select id="provider">
+                  <option value="hunter" selected>Hunter</option>
+                  <option value="apollo">Apollo</option>
+                </select>
+                <div class="micro">
+                  Apollo here means <strong>Apollo.io</strong> (people/contact database), not Apollo GraphQL (rover).
+                </div>
+              </div>
+
+              <div class="actions">
+                <button id="hrSearchBtn" class="btn" type="button">Search</button>
+              </div>
+            </section>
+
+            <section class="card" id="hrFoundCard">
+              <div class="cardTitle">Found contacts</div>
+              <div class="cardHint">Results will appear here after you search.</div>
+              <div id="hrResults" class="status empty">Search results will appear here.</div>
+            </section>
+          </div>
+        </section>
+
+        <section class="card tabPanel hidden" id="panelDefaults">
+          <div class="cardTitle">Defaults (No code changes needed)</div>
           <div class="cardHint">
-            Enter a company name or domain and get a list of <strong>HR / Talent Acquisition</strong> emails.
-            (Requires server API keys to be configured.)
+            Set your own SMTP email/app-password, default subject/body, and upload a default resume.
+            After saving, the app will send emails using these settings.
           </div>
 
           <div class="row twoCol">
             <div>
-              <label class="label" for="company">Company name (optional)</label>
-              <input id="company" type="text" placeholder="e.g. TCS, Infosys, Google" />
+              <label class="label" for="defSmtpHost">SMTP host</label>
+              <input id="defSmtpHost" type="text" placeholder="smtp.gmail.com" />
             </div>
             <div>
-              <label class="label" for="domain">Company domain (recommended)</label>
-              <input id="domain" type="text" placeholder="e.g. company.com" />
+              <label class="label" for="defSmtpPort">SMTP port</label>
+              <input id="defSmtpPort" type="text" placeholder="587" />
+            </div>
+          </div>
+
+          <div class="row twoCol">
+            <div>
+              <label class="label" for="defSmtpSecure">SMTP secure</label>
+              <select id="defSmtpSecure">
+                <option value="false" selected>false (STARTTLS / 587)</option>
+                <option value="true">true (SSL / 465)</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="defFromName">From name</label>
+              <input id="defFromName" type="text" placeholder="Your name" />
+            </div>
+          </div>
+
+          <div class="row twoCol">
+            <div>
+              <label class="label" for="defSmtpUser">SMTP user / email</label>
+              <input id="defSmtpUser" type="text" placeholder="you@gmail.com" />
+            </div>
+            <div>
+              <label class="label" for="defSmtpPass">SMTP app password</label>
+              <input id="defSmtpPass" type="password" placeholder="(leave blank to keep saved password)" />
+            </div>
+          </div>
+
+          <div class="row twoCol">
+            <div>
+              <label class="label" for="defFromEmail">From email</label>
+              <input id="defFromEmail" type="text" placeholder="you@gmail.com (optional if same as SMTP user)" />
+            </div>
+            <div>
+              <label class="label" for="defSubject">Default subject</label>
+              <input id="defSubject" type="text" placeholder="Application for ..." />
             </div>
           </div>
 
           <div class="row">
-            <label class="label" for="provider">Provider</label>
-            <select id="provider">
-              <option value="hunter" selected>Hunter</option>
-              <option value="apollo">Apollo</option>
-            </select>
-            <div class="micro">
-              Apollo here means <strong>Apollo.io</strong> (people/contact database), not Apollo GraphQL (rover).
-            </div>
-          </div>
-
-          <div class="actions">
-            <button id="hrSearchBtn" class="btn" type="button">Search</button>
-            <button id="hrCopyBtn" class="btn secondary" type="button">Copy emails</button>
-            <button id="hrCopyPhoneBtn" class="btn secondary" type="button">Copy phone</button>
+            <label class="label" for="defBody">Default body (optional)</label>
+            <textarea id="defBody" rows="10" placeholder="If empty, the built-in template is used."></textarea>
+            <div class="micro">This will be used as your email content. (No hard-coded template.)</div>
           </div>
 
           <div class="divider"></div>
-          <div id="hrResults" class="status empty">Search results will appear here.</div>
+
+          <div class="cardTitle">Default Resume</div>
+          <div class="cardHint">
+            Upload a PDF resume once. This will be used when you don’t upload a resume in Send/Bulk.
+          </div>
+          <div class="row">
+            <label class="label" for="defResume">Resume (PDF)</label>
+            <input id="defResume" type="file" accept=".pdf" />
+            <div class="actions">
+              <button id="defUploadResumeBtn" class="btn secondary" type="button">Upload resume</button>
+              <button id="defSaveBtn" class="btn" type="button">Save defaults</button>
+            </div>
+            <div id="defStatus" class="status empty">Load and update your defaults here.</div>
+          </div>
         </section>
 
         <aside class="card" id="panelSide">
@@ -159,23 +249,40 @@
 
           <div class="cardTitle">Bulk Send (Excel)</div>
           <div class="cardHint">
-            Upload an <strong>.xlsx</strong> file and send to every row. Columns: <code>email</code>,
-            <code>recipient name</code>, <code>subject</code>, <code>body</code>.
+            Send to many recipients either by uploading an <strong>.xlsx</strong> file or by pasting a
+            comma/newline-separated email list.
           </div>
 
           <div class="row" style="gap:10px">
-            <a class="dl" href="/template.xlsx">Download Excel template</a>
+            <a class="dl" href="/sent.xlsx">Download sent log (Excel)</a>
 
+            <label class="label" for="bulkMode">Bulk mode</label>
+            <select id="bulkMode">
+              <option value="excel" selected>Excel sheet (.xlsx)</option>
+              <option value="paste">Direct copy-paste (comma/newline)</option>
+            </select>
+
+            <div id="bulkExcelWrap">
             <label class="label" for="excel">Excel file (.xlsx) <span class="req">*</span></label>
             <input id="excel" type="file" accept=".xlsx" />
+            </div>
+
+            <div id="bulkPasteWrap" class="hidden">
+              <label class="label" for="bulkEmails">Emails (comma/newline separated) <span class="req">*</span></label>
+              <textarea
+                id="bulkEmails"
+                rows="6"
+                placeholder="admin@totalsoft.co.uk, abhinav.jain+hiring@cloudambassadors.com, archit.rastogi@arrise.com"
+              ></textarea>
+              <div class="micro">Tip: you can paste one per line or separated by commas.</div>
+            </div>
 
             <label class="label" for="bulkResume">Resume for all rows (optional PDF)</label>
             <input id="bulkResume" type="file" accept=".pdf" />
 
             <button id="bulkSendBtn" class="btn" type="button">Send Bulk Emails</button>
             <div class="micro">
-              If a row’s <strong>subject/body</strong> is empty, defaults are used. If <strong>body</strong>
-              is empty, your default template is used.
+              Defaults are used for subject/body. In Excel mode, each row can override <strong>subject/body</strong>.
             </div>
           </div>
 

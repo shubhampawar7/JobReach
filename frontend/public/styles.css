@@ -51,7 +51,7 @@ body {
 }
 
 .shell {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 28px 20px 34px;
 }
@@ -120,6 +120,26 @@ body {
   gap: 16px;
 }
 
+/* When the right sidebar is hidden (HR/Defaults tabs), let these panels span full grid width */
+#panelHr,
+#panelDefaults {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.tabPanel {
+  width: 100%;
+}
+
+.hrTwoCol {
+  display: grid;
+  grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  /* Fixed-height panels in HR tab; the right side will scroll for long results */
+  height: calc(100vh - 240px);
+}
+
 .tabs {
   display: flex;
   gap: 10px;
@@ -146,6 +166,24 @@ body {
   .grid {
     grid-template-columns: 1fr;
   }
+  .hrTwoCol {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+#hrFormCard,
+#hrFoundCard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0; /* important so children can scroll inside */
+}
+
+#hrResults {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .card {
@@ -234,6 +272,63 @@ input:focus,
 textarea:focus {
   border-color: rgba(124, 92, 255, 0.8);
   box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.16);
+}
+
+.typeahead {
+  position: relative;
+}
+
+.typeaheadMenu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 2000;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #0b1020; /* solid (non-transparent) */
+  backdrop-filter: none;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.typeaheadMenuInner {
+  max-height: 260px; /* scroll when too many */
+  overflow: auto;
+  padding: 6px;
+}
+
+.typeaheadItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.typeaheadItem:hover {
+  background: rgba(124, 92, 255, 0.22);
+  border-color: rgba(124, 92, 255, 0.22);
+}
+
+.typeaheadItem.active {
+  background: rgba(61, 225, 255, 0.22);
+  border-color: rgba(61, 225, 255, 0.22);
+}
+
+.typeaheadMeta {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #090d1a; /* solid footer */
 }
 
 .micro {
@@ -521,6 +616,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 @media (max-width: 700px) {
@@ -534,6 +630,7 @@ textarea:focus {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(0, 0, 0, 0.18);
   padding: 10px 12px;
+  width: 100%;
 }
 
 .hrName {
@@ -550,7 +647,7 @@ textarea:focus {
 
 .hrEmailRow {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 10px;
   align-items: center;
   min-width: 0;

@@ -6,5 +6,6 @@ data/sent.backup.json
 assets/*.pdf
 data/recipients.csv
 .npm-cache/
+dist/
 
 

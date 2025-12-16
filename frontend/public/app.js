@@ -5,6 +5,8 @@ const statusEl = $("#status");
 const sendBtn = $("#sendBtn");
 const spinner = $(".btnSpinner");
 const resetBtn = $("#resetBtn");
+const subjectInput = $("#subject");
+const bodyInput = $("#body");
 
 const dropzone = $("#dropzone");
 const resumeInput = $("#resume");
@@ -16,22 +18,215 @@ const excelInput = $("#excel");
 const bulkResumeInput = $("#bulkResume");
 const bulkSendBtn = $("#bulkSendBtn");
 const logoutBtn = $("#logoutBtn");
+const bulkModeSel = $("#bulkMode");
+const bulkExcelWrap = $("#bulkExcelWrap");
+const bulkPasteWrap = $("#bulkPasteWrap");
+const bulkEmailsTa = $("#bulkEmails");
 
 // Tabs
 const tabSend = $("#tabSend");
 const tabHr = $("#tabHr");
+const tabDefaults = $("#tabDefaults");
 const panelSend = $("#panelSend");
 const panelHr = $("#panelHr");
+const panelDefaults = $("#panelDefaults");
 const panelSide = $("#panelSide");
 
 // HR finder
 const hrSearchBtn = $("#hrSearchBtn");
-const hrCopyBtn = $("#hrCopyBtn");
-const hrCopyPhoneBtn = $("#hrCopyPhoneBtn");
 const hrResults = $("#hrResults");
 const providerSel = $("#provider");
 let lastHrContacts = [];
 let lastHrPhone = "";
+
+const companyInput = $("#company");
+const companyDropdown = $("#companyDropdown");
+const domainInput = $("#domain");
+
+function debounce(fn, waitMs) {
+  let t = null;
+  return (...args) => {
+    if (t) clearTimeout(t);
+    t = setTimeout(() => fn(...args), waitMs);
+  };
+}
+
+function uniqStrings(arr) {
+  const out = [];
+  const seen = new Set();
+  for (const x of Array.isArray(arr) ? arr : []) {
+    const s = String(x || "").trim();
+    if (!s) continue;
+    const k = s.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+  }
+  return out;
+}
+
+let savedCompanyNames = [];
+let liveCompanyNames = [];
+let taActiveIndex = -1;
+
+function getAllCompanyNames() {
+  return uniqStrings([...(savedCompanyNames || []), ...(liveCompanyNames || [])]);
+}
+
+function ensureDropdownShell() {
+  if (!companyDropdown) return null;
+  // Use an inner wrapper so we can keep borders fixed while list scrolls.
+  if (!companyDropdown.querySelector(".typeaheadMenuInner")) {
+    companyDropdown.innerHTML = `<div class="typeaheadMenuInner"></div><div class="typeaheadMeta">Type to search, or pick a company.</div>`;
+  }
+  return companyDropdown.querySelector(".typeaheadMenuInner");
+}
+
+function closeCompanyDropdown() {
+  if (!companyDropdown) return;
+  companyDropdown.classList.add("hidden");
+  taActiveIndex = -1;
+}
+
+function openCompanyDropdown() {
+  if (!companyDropdown) return;
+  companyDropdown.classList.remove("hidden");
+}
+
+function setActiveItem(idx) {
+  const inner = ensureDropdownShell();
+  if (!inner) return;
+  const items = Array.from(inner.querySelectorAll(".typeaheadItem"));
+  if (!items.length) {
+    taActiveIndex = -1;
+    return;
+  }
+  taActiveIndex = Math.max(0, Math.min(idx, items.length - 1));
+  items.forEach((el, i) => el.classList.toggle("active", i === taActiveIndex));
+  const active = items[taActiveIndex];
+  if (active) active.scrollIntoView({ block: "nearest" });
+}
+
+function commitCompanyValue(v) {
+  if (!companyInput) return;
+  companyInput.value = String(v || "");
+  closeCompanyDropdown();
+}
+
+function renderCompanyDropdown({ forceOpen = false } = {}) {
+  if (!companyDropdown) return;
+  const inner = ensureDropdownShell();
+  if (!inner) return;
+
+  const q = String(companyInput?.value || "").trim().toLowerCase();
+  const all = getAllCompanyNames();
+  const filtered = q
+    ? all.filter((n) => String(n).toLowerCase().includes(q))
+    : all;
+
+  const shown = filtered.slice(0, 80);
+
+  if (!shown.length) {
+    inner.innerHTML = `<div class="typeaheadMeta" style="border-top:none;background:transparent;padding:10px 10px">No matches. Keep typing to use a custom name.</div>`;
+    taActiveIndex = -1;
+  } else {
+    inner.innerHTML = shown
+      .map(
+        (name) =>
+          `<button type="button" class="typeaheadItem" role="option" data-value="${escapeHtml(
+            name,
+          )}">${escapeHtml(name)}</button>`,
+      )
+      .join("");
+    taActiveIndex = -1;
+  }
+
+  // Open only when focusing/typing.
+  if (forceOpen) openCompanyDropdown();
+}
+
+async function loadSavedCompanyNames() {
+  try {
+    const res = await fetch("/api/company-names");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) return;
+    savedCompanyNames = uniqStrings(data.companies || []);
+    renderCompanyDropdown();
+  } catch {
+    // ignore
+  }
+}
+
+const fetchCompanySuggestDebounced = debounce(async () => {
+  const q = String(companyInput?.value || "").trim();
+  if (q.length < 2) {
+    liveCompanyNames = [];
+    renderCompanyDropdown({ forceOpen: true });
+    return;
+  }
+  try {
+    const res = await fetch(`/api/company-suggest?query=${encodeURIComponent(q)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) return;
+    liveCompanyNames = uniqStrings(data.companies || []);
+    renderCompanyDropdown({ forceOpen: true });
+  } catch {
+    // ignore
+  }
+}, 180);
+
+companyInput?.addEventListener("focus", () => {
+  renderCompanyDropdown({ forceOpen: true });
+});
+
+companyInput?.addEventListener("input", () => {
+  renderCompanyDropdown({ forceOpen: true });
+  fetchCompanySuggestDebounced();
+});
+
+companyInput?.addEventListener("keydown", (e) => {
+  if (!companyDropdown || companyDropdown.classList.contains("hidden")) {
+    if (e.key === "ArrowDown") {
+      renderCompanyDropdown({ forceOpen: true });
+      setActiveItem(0);
+      e.preventDefault();
+    }
+    return;
+  }
+
+  const inner = ensureDropdownShell();
+  const items = inner ? Array.from(inner.querySelectorAll(".typeaheadItem")) : [];
+  if (!items.length) return;
+
+  if (e.key === "ArrowDown") {
+    setActiveItem((taActiveIndex < 0 ? -1 : taActiveIndex) + 1);
+    e.preventDefault();
+  } else if (e.key === "ArrowUp") {
+    setActiveItem((taActiveIndex < 0 ? items.length : taActiveIndex) - 1);
+    e.preventDefault();
+  } else if (e.key === "Enter") {
+    if (taActiveIndex >= 0 && items[taActiveIndex]) {
+      commitCompanyValue(items[taActiveIndex].getAttribute("data-value") || "");
+      e.preventDefault();
+    }
+  } else if (e.key === "Escape") {
+    closeCompanyDropdown();
+    e.preventDefault();
+  }
+});
+
+companyDropdown?.addEventListener("mousedown", (e) => {
+  const btn = e.target?.closest?.(".typeaheadItem");
+  if (!btn) return;
+  e.preventDefault(); // prevent input blur before click
+  commitCompanyValue(btn.getAttribute("data-value") || "");
+});
+
+document.addEventListener("mousedown", (e) => {
+  const within =
+    e.target?.closest?.("#companyTypeahead") || e.target?.closest?.("#companyDropdown") || null;
+  if (!within) closeCompanyDropdown();
+});
 
 async function initProviderStatus() {
   try {
@@ -96,18 +291,153 @@ function setLoading(isLoading) {
 function setTab(which) {
   const isSend = which === "send";
   const isHr = which === "hr";
+  const isDefaults = which === "defaults";
   tabSend?.classList.toggle("active", isSend);
   tabHr?.classList.toggle("active", isHr);
+  tabDefaults?.classList.toggle("active", isDefaults);
   panelSend?.classList.toggle("hidden", !isSend);
   panelHr?.classList.toggle("hidden", !isHr);
+  panelDefaults?.classList.toggle("hidden", !isDefaults);
   // Keep the right-side status visible for send; hide for other tabs to give space.
   panelSide?.classList.toggle("hidden", !isSend);
 }
 
 tabSend?.addEventListener("click", () => setTab("send"));
 tabHr?.addEventListener("click", () => setTab("hr"));
+tabDefaults?.addEventListener("click", () => setTab("defaults"));
 
 initProviderStatus();
+loadSavedCompanyNames();
+
+// -------------------------
+// Defaults tab (settings)
+// -------------------------
+const defSmtpHost = $("#defSmtpHost");
+const defSmtpPort = $("#defSmtpPort");
+const defSmtpSecure = $("#defSmtpSecure");
+const defSmtpUser = $("#defSmtpUser");
+const defSmtpPass = $("#defSmtpPass");
+const defFromEmail = $("#defFromEmail");
+const defFromName = $("#defFromName");
+const defSubject = $("#defSubject");
+const defBody = $("#defBody");
+const defResume = $("#defResume");
+const defUploadResumeBtn = $("#defUploadResumeBtn");
+const defSaveBtn = $("#defSaveBtn");
+const defStatus = $("#defStatus");
+
+function setDefStatus(type, html) {
+  if (!defStatus) return;
+  defStatus.classList.remove("empty", "good", "bad");
+  defStatus.classList.add(type);
+  defStatus.innerHTML = html;
+}
+
+async function loadDefaultsIntoUI() {
+  if (!defSmtpHost) return;
+  try {
+    const res = await fetch("/api/settings");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    const s = data.settings || {};
+    defSmtpHost.value = s.smtpHost || "";
+    defSmtpPort.value = s.smtpPort ? String(s.smtpPort) : "";
+    defSmtpSecure.value = String(Boolean(s.smtpSecure));
+    defSmtpUser.value = s.smtpUser || "";
+    defFromEmail.value = s.fromEmail || "";
+    defFromName.value = s.fromName || "";
+    defSubject.value = s.subject || "";
+    defBody.value = s.defaultBody || "";
+    defSmtpPass.value = "";
+
+    // Also apply defaults into Send tab (only if user hasn't typed overrides).
+    if (subjectInput && !String(subjectInput.value || "").trim() && s.subject) {
+      subjectInput.value = String(s.subject || "");
+    }
+    if (bodyInput && !String(bodyInput.value || "").trim() && s.defaultBody) {
+      bodyInput.value = String(s.defaultBody || "");
+    }
+
+    setDefStatus(
+      "empty",
+      `Loaded. Saved password: <strong>${s.smtpPassSet ? "yes" : "no"}</strong>. Resume uploaded: <strong>${
+        s.resumeSet ? "yes" : "no"
+      }</strong>.`,
+    );
+  } catch (e) {
+    setDefStatus("bad", `<strong>Failed to load.</strong><br/>${escapeHtml(String(e?.message || e))}`);
+  }
+}
+
+defSaveBtn?.addEventListener("click", async () => {
+  try {
+    setDefStatus("empty", "Saving…");
+    const payload = {
+      smtpHost: String(defSmtpHost?.value || "").trim(),
+      smtpPort: Number(String(defSmtpPort?.value || "").trim() || 0) || null,
+      smtpSecure: String(defSmtpSecure?.value || "false") === "true",
+      smtpUser: String(defSmtpUser?.value || "").trim(),
+      smtpPass: String(defSmtpPass?.value || ""),
+      fromEmail: String(defFromEmail?.value || "").trim(),
+      fromName: String(defFromName?.value || "").trim(),
+      subject: String(defSubject?.value || "").trim(),
+      defaultBody: String(defBody?.value || "").trim(),
+    };
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      const err = data.error || `Request failed (${res.status})`;
+      setDefStatus("bad", `<strong>Save failed.</strong><br/>${escapeHtml(err)}`);
+      toast("bad", "Save failed", err);
+      return;
+    }
+    defSmtpPass.value = "";
+    setDefStatus("good", "<strong>Saved.</strong> Defaults updated.");
+    toast("good", "Saved", "Defaults updated");
+  } catch (e) {
+    const msg = String(e?.message || e);
+    setDefStatus("bad", `<strong>Error.</strong><br/>${escapeHtml(msg)}`);
+    toast("bad", "Error", msg);
+  }
+});
+
+defUploadResumeBtn?.addEventListener("click", async () => {
+  const f = defResume?.files?.[0];
+  if (!f) {
+    toast("bad", "Missing file", "Choose a PDF resume first.");
+    return;
+  }
+  if (!String(f.name || "").toLowerCase().endsWith(".pdf")) {
+    toast("bad", "Invalid file", "Resume must be a PDF.");
+    return;
+  }
+  try {
+    setDefStatus("empty", "Uploading resume…");
+    const fd = new FormData();
+    fd.set("resume", f);
+    const res = await fetch("/api/settings/resume", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      const err = data.error || `Request failed (${res.status})`;
+      setDefStatus("bad", `<strong>Upload failed.</strong><br/>${escapeHtml(err)}`);
+      toast("bad", "Upload failed", err);
+      return;
+    }
+    setDefStatus("good", "<strong>Uploaded.</strong> Default resume updated.");
+    toast("good", "Uploaded", "Default resume updated");
+    await loadDefaultsIntoUI();
+  } catch (e) {
+    const msg = String(e?.message || e);
+    setDefStatus("bad", `<strong>Error.</strong><br/>${escapeHtml(msg)}`);
+    toast("bad", "Error", msg);
+  }
+});
+
+loadDefaultsIntoUI();
 
 function updateFileUI() {
   const f = resumeInput.files && resumeInput.files[0];
@@ -228,7 +558,11 @@ logoutBtn?.addEventListener("click", async () => {
 
 function renderHrResults(contacts, meta = {}) {
   lastHrContacts = Array.isArray(contacts) ? contacts : [];
-  lastHrPhone = meta.phone || "";
+  const phones = (lastHrContacts || [])
+    .map((c) => String(c?.phone || "").trim())
+    .filter(Boolean);
+  const uniqPhones = Array.from(new Set(phones));
+  lastHrPhone = meta.phone || uniqPhones.join("\n") || "";
   if (!lastHrContacts.length) {
     hrResults.className = "status empty";
     hrResults.innerHTML = "No HR / Talent contacts found.";
@@ -240,6 +574,8 @@ function renderHrResults(contacts, meta = {}) {
       const name = c.name ? escapeHtml(c.name) : "Hiring Team";
       const pos = c.position ? escapeHtml(c.position) : "HR / Talent";
       const email = c.email ? escapeHtml(c.email) : "—";
+      const phone = c.phone ? escapeHtml(c.phone) : "";
+      const sendName = escapeHtml(String(c.name || "Hiring Team"));
       const conf =
         c.confidence === null || c.confidence === undefined ? "—" : escapeHtml(String(c.confidence));
       return `
@@ -254,7 +590,26 @@ function renderHrResults(contacts, meta = {}) {
                 <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="currentColor" stroke-width="2" />
               </svg>
             </button>
+            <button class="iconBtn js-send-hr-email" type="button" data-email="${email}" data-name="${sendName}" title="Send email">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
           </div>
+          ${
+            phone
+              ? `<div class="hrEmailRow" style="margin-top:8px">
+                  <code class="hrEmail" title="${phone}">${phone}</code>
+                  <button class="iconBtn js-copy-phone" type="button" data-phone="${phone}" title="Copy phone">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M9 9h10v10H9V9Z" stroke="currentColor" stroke-width="2" />
+                      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="currentColor" stroke-width="2" />
+                    </svg>
+                  </button>
+                </div>`
+              : ""
+          }
           <div class="hrBottomRow">
             <span class="hrBadge">Confidence</span>
             <span class="hrBadge">${conf}</span>
@@ -292,15 +647,66 @@ function renderHrResults(contacts, meta = {}) {
 
 hrResults?.addEventListener("click", async (e) => {
   const btn = e.target?.closest?.(".js-copy-email");
-  if (!btn) return;
-  const email = btn.getAttribute("data-email") || "";
-  if (!email || email === "—") {
-    toast("bad", "Copy failed", "No email to copy");
+  const phoneBtn = e.target?.closest?.(".js-copy-phone");
+  const sendBtn = e.target?.closest?.(".js-send-hr-email");
+  if (!btn && !phoneBtn && !sendBtn) return;
+
+  if (sendBtn) {
+    const email = String(sendBtn.getAttribute("data-email") || "").trim();
+    const name = String(sendBtn.getAttribute("data-name") || "").trim();
+    if (!email || email === "—") {
+      toast("bad", "Send failed", "No email found");
+      return;
+    }
+
+    const oldText = sendBtn.getAttribute("data-old-text") || "";
+    if (!oldText) sendBtn.setAttribute("data-old-text", sendBtn.innerHTML);
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = "0.7";
+    sendBtn.innerHTML = `<span style="font-size:12px;font-weight:800">…</span>`;
+
+    try {
+      const fd = new FormData();
+      fd.set("email", email);
+      fd.set("name", name);
+      // subject/body empty => defaults
+      fd.set("subject", "");
+      fd.set("body", "");
+
+      const res = await fetch("/api/send", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        const err = data.error || `Request failed (${res.status})`;
+        toast("bad", "Send failed", err);
+        return;
+      }
+      toast("good", "Email sent", email);
+    } catch (err) {
+      const msg = String(err?.message || err);
+      toast("bad", "Send failed", msg);
+    } finally {
+      const html = sendBtn.getAttribute("data-old-text");
+      if (html) sendBtn.innerHTML = html;
+      sendBtn.disabled = false;
+      sendBtn.style.opacity = "";
+    }
+    return;
+  }
+
+  const val = btn
+    ? btn.getAttribute("data-email") || ""
+    : phoneBtn
+      ? phoneBtn.getAttribute("data-phone") || ""
+      : "";
+  const label = btn ? "email" : "phone";
+
+  if (!val || val === "—") {
+    toast("bad", "Copy failed", `No ${label} to copy`);
     return;
   }
   try {
-    await navigator.clipboard.writeText(email);
-    toast("good", "Copied", email);
+    await navigator.clipboard.writeText(val);
+    toast("good", "Copied", val);
   } catch {
     toast("bad", "Copy failed", "Browser blocked clipboard. Copy manually.");
   }
@@ -348,55 +754,44 @@ hrSearchBtn?.addEventListener("click", async () => {
   }
 });
 
-hrCopyBtn?.addEventListener("click", async () => {
-  const emails = (lastHrContacts || []).map((c) => c.email).filter(Boolean);
-  if (!emails.length) {
-    toast("bad", "Nothing to copy", "Search first to get emails.");
-    return;
-  }
-  const text = emails.join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    toast("good", "Copied", `${emails.length} emails copied`);
-  } catch {
-    toast("bad", "Copy failed", "Browser blocked clipboard. Select and copy manually.");
-  }
-});
-
-hrCopyPhoneBtn?.addEventListener("click", async () => {
-  if (!lastHrPhone) {
-    toast("bad", "No phone found", "This provider did not return a company phone number.");
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(String(lastHrPhone));
-    toast("good", "Copied", "Phone number copied");
-  } catch {
-    toast("bad", "Copy failed", "Browser blocked clipboard. Copy manually from the result.");
-  }
-});
-
 bulkSendBtn?.addEventListener("click", async () => {
-  const excel = excelInput?.files?.[0];
-  if (!excel) {
-    setStatus("bad", "<strong>Excel (.xlsx) is required for bulk send.</strong>");
-    return;
-  }
-  if (!excel.name.toLowerCase().endsWith(".xlsx")) {
-    setStatus("bad", "<strong>Please upload a valid .xlsx file.</strong>");
-    return;
-  }
+  const mode = String(bulkModeSel?.value || "excel");
 
   setLoading(true);
   setStatus("empty", "Sending bulk emails… (this may take a bit)");
 
   const fd = new FormData();
-  fd.set("excel", excel);
+  if (mode === "excel") {
+    const excel = excelInput?.files?.[0];
+    if (!excel) {
+      setLoading(false);
+      setStatus("bad", "<strong>Excel (.xlsx) is required for bulk send.</strong>");
+      return;
+    }
+    if (!excel.name.toLowerCase().endsWith(".xlsx")) {
+      setLoading(false);
+      setStatus("bad", "<strong>Please upload a valid .xlsx file.</strong>");
+      return;
+    }
+    fd.set("excel", excel);
+  } else {
+    const raw = String(bulkEmailsTa?.value || "").trim();
+    if (!raw) {
+      setLoading(false);
+      setStatus("bad", "<strong>Please paste at least one email.</strong>");
+      return;
+    }
+    fd.set("emails", raw);
+  }
+
   const bulkResume = bulkResumeInput?.files?.[0];
   if (bulkResume) fd.set("resume", bulkResume);
 
   try {
-    const res = await fetch("/api/send-bulk", { method: "POST", body: fd });
+    const res = await fetch(mode === "excel" ? "/api/send-bulk" : "/api/send-list", {
+      method: "POST",
+      body: fd,
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
       const err = data.error || `Request failed (${res.status})`;
@@ -451,6 +846,15 @@ bulkSendBtn?.addEventListener("click", async () => {
     setLoading(false);
   }
 });
+
+function setBulkMode(mode) {
+  const m = String(mode || "excel");
+  bulkExcelWrap?.classList.toggle("hidden", m !== "excel");
+  bulkPasteWrap?.classList.toggle("hidden", m !== "paste");
+}
+
+setBulkMode(bulkModeSel?.value || "excel");
+bulkModeSel?.addEventListener("change", () => setBulkMode(bulkModeSel?.value || "excel"));
 
 function escapeHtml(s) {
   return String(s)

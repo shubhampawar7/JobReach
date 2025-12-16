@@ -25,6 +25,13 @@ function writeJsonAtomic(filePath, obj) {
   fs.renameSync(tmp, filePath);
 }
 
-module.exports = { sleep, readJson, writeJsonAtomic, ensureDir };
+function writeFileAtomic(filePath, data) {
+  ensureDir(path.dirname(filePath));
+  const tmp = `${filePath}.tmp`;
+  fs.writeFileSync(tmp, data);
+  fs.renameSync(tmp, filePath);
+}
+
+module.exports = { sleep, readJson, writeJsonAtomic, writeFileAtomic, ensureDir };
 
 

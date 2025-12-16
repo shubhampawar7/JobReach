@@ -16,7 +16,7 @@ async function startWatcher() {
   let recipients = loadRecipients(config.paths.recipientsCsv);
   let known = setFromRecipients(recipients);
 
-  const transporter = createTransporter({ smtp: config.smtp, from: config.from });
+  const transporter = await createTransporter({ smtp: config.smtp, from: config.from });
 
   let debounceTimer = null;
   const onChange = () => {

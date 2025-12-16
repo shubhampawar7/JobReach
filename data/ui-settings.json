@@ -1,0 +1,11 @@
+{
+  "smtpHost": "smtp.gmail.com",
+  "smtpPort": 587,
+  "smtpSecure": false,
+  "smtpUser": "pawarshubham1295@gmail.com",
+  "smtpPass": "edbo ycps cwgh ftlh",
+  "fromEmail": "pawarshubham1295@gmail.com",
+  "fromName": "Shubham Pawar",
+  "subject": "Application for MERN Stack Developer Role — Immediate Joiner | 3 Yrs Experience",
+  "defaultBody": "I hope you’re doing well. My name is Shubham Pawar, and I am writing to apply for the MERN Stack Developer position at your organization. I have 3 years of hands-on experience building scalable, high-performance web applications using React.js, Node.js, TypeScript, Microservices, PostgreSQL, MongoDB, SSO, and SSE.\n\nIn my recent roles, I have:\n\nBuilt responsive, pixel-perfect UIs using React.js and modern frontend architecture\nDeveloped secure backend APIs and microservices\nImplemented real-time features using Server-Sent Events (SSE)\nImproved performance through caching, state optimization, memoization & API tuning\nDelivered end-to-end features in fast-paced product environments\nCollaborated with Product, QA, and DevOps to ensure smooth and timely delivery\nI am an IMMEDIATE JOINER.\n\nHere are my key links for quick review:\n\nLinkedIn: https://www.linkedin.com/in/shubhampawar-\nPortfolio: https://shubhamsportfoliosite.netlify.app/\nEmail: pawarshubham1295@gmail.com\nContact: 7020567907\nI would greatly appreciate the opportunity to discuss how my MERN expertise and hands-on project experience can contribute to your engineering team.\n\nThank you for your time, and I look forward to the possibility of connecting.\n\nWarm regards,\nShubham Pawar\nMERN Stack Developer | Software Engineer\nImmediate Joiner"
+}

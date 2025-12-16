@@ -1,6 +1,7 @@
 const config = require("./config");
 const { loadRecipients } = require("./recipients");
 const { loadSentLog, isSent, markSent, markError } = require("./sent-log");
+const { appendSentRow } = require("./excel-log");
 const { sleep } = require("./utils");
 const { createTransporter, sendApplicationEmail } = require("./mailer");
 
@@ -27,7 +28,7 @@ async function sendPending({ source = "manual" } = {}) {
     return { sent: 0, pending: pending.length, dryRun: true };
   }
 
-  const transporter = createTransporter({ smtp: config.smtp, from: config.from });
+  const transporter = await createTransporter({ smtp: config.smtp, from: config.from });
   let sentCount = 0;
 
   for (const r of pending) {
@@ -46,6 +47,16 @@ async function sendPending({ source = "manual" } = {}) {
         response: info.response,
         source,
       });
+      try {
+        appendSentRow(config.paths.sentXlsx, {
+          email: r.email,
+          name: r.name || "",
+          subject: config.content.subject,
+          error: "",
+        });
+      } catch (e) {
+        console.error("[excel-log] Failed to log sent email:", e?.message || e);
+      }
       sentCount += 1;
       console.log(`Sent OK: ${r.email} (messageId: ${info.messageId || "n/a"})`);
     } catch (err) {
@@ -53,6 +64,16 @@ async function sendPending({ source = "manual" } = {}) {
         error: String(err?.message || err),
         source,
       });
+      try {
+        appendSentRow(config.paths.sentXlsx, {
+          email: r.email,
+          name: r.name || "",
+          subject: config.content.subject,
+          error: String(err?.message || err),
+        });
+      } catch (e) {
+        console.error("[excel-log] Failed to log failed email:", e?.message || e);
+      }
       console.error(`Send FAILED: ${r.email} -> ${err?.message || err}`);
     }
 
